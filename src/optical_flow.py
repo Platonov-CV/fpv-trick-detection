@@ -24,7 +24,7 @@ def main():
     root = os.getcwd()
     video_path = os.path.join(
         root,
-        "C:FPVTrickDetector_data/videos_raw/"
+        "../data/videos_raw/"
         "Flips-_-Rolls-First-Freestyle-flights-Dr_Media_sNyytnm6uio_001_1080p.mp4"
     )
     video_cap_obj = cv.VideoCapture(video_path)

@@ -7,8 +7,8 @@ import numpy as np
 from src.optical_flow import process_frame_for_optical_flow, downscale_frame
 
 
-raw_video_paths = [f for f in Path("C:FPVTrickDetector_data/videos_raw").iterdir()]
-processed_video_paths = [f for f in Path("C:FPVTrickDetector_data/videos_optical_flow").iterdir()]
+raw_video_paths = [f for f in Path("../data/videos_raw").iterdir()]
+processed_video_paths = [f for f in Path("../data/videos_optical_flow").iterdir()]
 
 # leave only the unprocessed videos
 videos_to_process = [
@@ -23,7 +23,7 @@ for path in videos_to_process:
     fourcc = cv2.VideoWriter.fourcc('m','p','4','v')
     fps = cap.get(cv2.CAP_PROP_FPS)
     out = cv2.VideoWriter(
-        os.path.join(Path("C:FPVTrickDetector_data/videos_optical_flow/"), path.name),
+        os.path.join(Path("../data/videos_optical_flow/"), path.name),
         fourcc,
         fps,
         (320, 320)
