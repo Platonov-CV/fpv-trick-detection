@@ -21,8 +21,7 @@ label_lookup = {
 
 
 class FPVTricksDataset(Dataset):
-    def __init__(self, device):
-        self.device = device
+    def __init__(self):
         self.video_paths = [f for f in Path("../data/videos_optical_flow").iterdir()]
 
         self.label_segments = pd.read_csv(
@@ -56,6 +55,8 @@ class FPVTricksDataset(Dataset):
 
             seq_flow[frame_index, :, :, :] = torch.tensor(flow)
 
+        seq_flow = torch.moveaxis(seq_flow, 3, 1)
+
         # load frame labels from df
         label_segments = self.label_segments[path.name == self.label_segments["filename"]]
         fps = cap.get(cv2.CAP_PROP_FPS)
@@ -76,8 +77,8 @@ class FPVTricksDataset(Dataset):
         return seq_flow, labels
 
 
-def get_dataloaders(device):
-    ds = FPVTricksDataset(device)
+def get_dataloaders():
+    ds = FPVTricksDataset()
 
     # train_ds, val_ds = random_split(ds, [.8, .2], generator=torch.Generator().manual_seed(777))
     train_ds, val_ds = random_split(ds, [1, 1], generator=torch.Generator().manual_seed(777))
@@ -89,9 +90,7 @@ def get_dataloaders(device):
 
 
 def main():
-    device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
-
-    train_dl, val_dl = get_dataloaders(device)
+    train_dl, val_dl = get_dataloaders()
     item = next(iter(train_dl))
     item = next(iter(val_dl))
 
