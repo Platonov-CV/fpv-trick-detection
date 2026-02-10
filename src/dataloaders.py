@@ -9,18 +9,12 @@ from ast import literal_eval
 
 
 label_lookup = {
-    'crash': 0,
-    'cruising': 1,
-    'flip': 2,
-    'grounded': 3,
-    'orbit': 4,
-    'power loop': 5,
-    'roll': 6,
-    'spin': 7,
+    'in_control': 0,
+    'crash': 1,
 }
 
 
-class FPVTricksDataset(Dataset):
+class FPVCrashDataset(Dataset):
     def __init__(self):
         self.video_paths = [f for f in Path("../data/videos_optical_flow").iterdir()]
 
@@ -78,10 +72,9 @@ class FPVTricksDataset(Dataset):
 
 
 def get_dataloaders():
-    ds = FPVTricksDataset()
+    ds = FPVCrashDataset()
 
-    # train_ds, val_ds = random_split(ds, [.8, .2], generator=torch.Generator().manual_seed(777))
-    train_ds, val_ds = random_split(ds, [1, 1], generator=torch.Generator().manual_seed(777))
+    train_ds, val_ds = random_split(ds, [.8, .2], generator=torch.Generator().manual_seed(777))
 
     train_dl = DataLoader(train_ds, batch_size=1)
     val_dl = DataLoader(val_ds, batch_size=1)

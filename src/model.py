@@ -1,13 +1,13 @@
 import numpy as np
 import torch
 from torch import nn, optim
-import torch.nn.functional as F
+import torch.nn.functional as f
 from torch.nn import GRU
 
 from src.dataloaders import get_dataloaders
 
 
-NUM_CLASSES = 8
+NUM_CLASSES = 2
 
 
 # processes 320x320 2 channel input into a 128-long 1x1 feature vector
@@ -21,14 +21,14 @@ class CNN(nn.Module):
 
 
     def forward(self, x):
-        x = F.relu(self.conv1(x))
-        x = F.relu(self.conv2(x))
-        x = F.relu(self.conv3(x))
+        x = f.relu(self.conv1(x))
+        x = f.relu(self.conv2(x))
+        x = f.relu(self.conv3(x))
 
         return x
 
 
-class FPVTrickDetector(nn.Module):
+class FPVCrashDetector(nn.Module):
     def __init__(self, device):
         super().__init__()
 
@@ -40,8 +40,6 @@ class FPVTrickDetector(nn.Module):
         )
 
         self.fc = nn.Linear(in_features=256, out_features=NUM_CLASSES, device=device)
-
-        # self.half()
 
 
     def forward(self, x):
@@ -69,7 +67,7 @@ class FPVTrickDetector(nn.Module):
 def main():
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
-    model = FPVTrickDetector(device)
+    model = FPVCrashDetector(device)
 
     train_dl, val_dl = get_dataloaders()
 
