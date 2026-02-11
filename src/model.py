@@ -7,7 +7,7 @@ from torch.nn import GRU
 from src.dataloaders import get_dataloaders
 
 
-NUM_CLASSES = 2
+NUM_CLASSES = 4
 
 
 # processes 320x320 2 channel input into a 128-long 1x1 feature vector
@@ -28,7 +28,7 @@ class CNN(nn.Module):
         return x
 
 
-class FPVCrashDetector(nn.Module):
+class FPVTrickDetector(nn.Module):
     def __init__(self, device):
         super().__init__()
 
@@ -67,7 +67,7 @@ class FPVCrashDetector(nn.Module):
 def main():
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
-    model = FPVCrashDetector(device)
+    model = FPVTrickDetector(device)
 
     train_dl, val_dl = get_dataloaders()
 

@@ -9,12 +9,14 @@ from ast import literal_eval
 
 
 label_lookup = {
-    'in_control': 0,
-    'crash': 1,
+    'none': 0,
+    'roll': 1,
+    'flip': 2,
+    'spin': 3,
 }
 
 
-class FPVCrashDataset(Dataset):
+class FPVTrickDataset(Dataset):
     def __init__(self):
         self.video_paths = [f for f in Path("../data/videos_optical_flow").iterdir()]
 
@@ -72,7 +74,7 @@ class FPVCrashDataset(Dataset):
 
 
 def get_dataloaders():
-    ds = FPVCrashDataset()
+    ds = FPVTrickDataset()
 
     train_ds, val_ds = random_split(ds, [.8, .2], generator=torch.Generator().manual_seed(777))
 

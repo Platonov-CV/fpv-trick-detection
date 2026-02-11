@@ -24,8 +24,7 @@ def main():
     root = os.getcwd()
     video_path = os.path.join(
         root,
-        "../data/videos_raw/"
-        "Flips-_-Rolls-First-Freestyle-flights-Dr_Media_sNyytnm6uio_001_1080p.mp4"
+        "D:/downloads/fpv-drone-crash-compilation-crashes-failsafes-ytshorts.savetube.vip.mp4"
     )
     video_cap_obj = cv.VideoCapture(video_path)
 
@@ -72,6 +71,8 @@ def main():
             break
 
         img_prev = img_cur
+
+    video_cap_obj.release()
 
 
 if __name__ == "__main__":
