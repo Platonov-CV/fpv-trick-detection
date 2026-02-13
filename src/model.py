@@ -1,8 +1,10 @@
 import numpy as np
 import torch
+from matplotlib import pyplot as plt
 from torch import nn, optim
 import torch.nn.functional as f
 from torch.nn import GRU
+from sklearn.metrics import confusion_matrix, ConfusionMatrixDisplay
 
 from src.dataloaders import get_dataloaders
 
@@ -67,10 +69,12 @@ class FPVTrickDetector(nn.Module):
 def main():
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
+    # load model and data
     model = FPVTrickDetector(device)
 
     train_dl, val_dl = get_dataloaders()
 
+    # training setup
     num_epochs = 200
     early_stop_patience = 5
     optimizer = optim.Adam(model.parameters())
@@ -81,6 +85,7 @@ def main():
     best_state_dict = model.state_dict()
     early_stop_counter = 0
 
+    # training
     for epoch in range(num_epochs):
         model.train()
         for inputs, labels in iter(train_dl):
@@ -128,6 +133,30 @@ def main():
                 break
 
     torch.save(best_state_dict, "../results/model.pt")
+    print("Best val_loss: ", best_val_loss)
+
+    # compute and plot confusion matrix
+    model.eval()
+    y_pred = torch.empty(0).to(device)
+    y_true = torch.empty(0).to(device)
+    with torch.no_grad():
+        for inputs, labels in iter(val_dl):
+            with torch.amp.autocast("cuda"):
+                preds = model(inputs.to(device))
+                preds = torch.argmax(preds, dim=2)
+                preds = torch.flatten(preds)
+
+                labels = torch.flatten(labels).to(device)
+
+                y_pred = torch.cat([y_pred, preds])
+                y_true = torch.cat([y_true, labels])
+
+    labels = [0, 1, 2, 3]
+    display_labels = ['none', 'roll', 'flip', 'spin']
+    cm = confusion_matrix(y_true.cpu(), y_pred.cpu(), labels=labels)
+    disp = ConfusionMatrixDisplay(confusion_matrix=cm, display_labels=display_labels)
+    disp.plot()
+    plt.show()
 
 
 if __name__ == "__main__":

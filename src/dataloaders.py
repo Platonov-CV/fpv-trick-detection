@@ -86,8 +86,9 @@ def get_dataloaders():
 
 def main():
     train_dl, val_dl = get_dataloaders()
-    item = next(iter(train_dl))
-    item = next(iter(val_dl))
+
+    for inputs, labels in iter(train_dl):
+        pass
 
 
 if __name__ == "__main__":
