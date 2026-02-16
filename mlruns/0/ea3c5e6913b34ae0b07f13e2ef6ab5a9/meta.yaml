@@ -1,0 +1,15 @@
+artifact_uri: file:D:/resources/cv projects/260202 FPVTrickDetection/src/../mlruns/0/ea3c5e6913b34ae0b07f13e2ef6ab5a9/artifacts
+deleted_time: 1771261381781
+end_time: 1771261178843
+entry_point_name: ''
+experiment_id: '0'
+lifecycle_stage: deleted
+run_id: ea3c5e6913b34ae0b07f13e2ef6ab5a9
+run_name: mlflow test
+source_name: ''
+source_type: 4
+source_version: ''
+start_time: 1771261142200
+status: 3
+tags: []
+user_id: plato

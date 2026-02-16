@@ -1,0 +1,10 @@
+artifact_location: file:D:/resources/cv projects/260202 FPVTrickDetection/src/../mlruns/0/models/m-d13b1e2fd5a142cdbdbdabefb1f44c35/artifacts
+creation_timestamp: 1771261148181
+experiment_id: '0'
+last_updated_timestamp: 1771261151238
+model_id: m-d13b1e2fd5a142cdbdbdabefb1f44c35
+model_type: null
+name: upbeat-auk-490
+source_run_id: ea3c5e6913b34ae0b07f13e2ef6ab5a9
+status: 2
+status_message: null

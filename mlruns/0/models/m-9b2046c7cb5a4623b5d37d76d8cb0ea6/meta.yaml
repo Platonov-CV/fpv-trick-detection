@@ -1,0 +1,10 @@
+artifact_location: file:D:/resources/cv projects/260202 FPVTrickDetection/src/../mlruns/0/models/m-9b2046c7cb5a4623b5d37d76d8cb0ea6/artifacts
+creation_timestamp: 1771264829536
+experiment_id: '0'
+last_updated_timestamp: 1771264834305
+model_id: m-9b2046c7cb5a4623b5d37d76d8cb0ea6
+model_type: null
+name: bustling-loon-932
+source_run_id: 450bf03e8c7e451588a2172e679ab11b
+status: 2
+status_message: null

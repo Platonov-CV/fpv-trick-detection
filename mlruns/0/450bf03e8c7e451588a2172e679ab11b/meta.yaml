@@ -1,0 +1,14 @@
+artifact_uri: file:D:/resources/cv projects/260202 FPVTrickDetection/src/../mlruns/0/450bf03e8c7e451588a2172e679ab11b/artifacts
+end_time: 1771264861420
+entry_point_name: ''
+experiment_id: '0'
+lifecycle_stage: active
+run_id: 450bf03e8c7e451588a2172e679ab11b
+run_name: init model
+source_name: ''
+source_type: 4
+source_version: ''
+start_time: 1771261533598
+status: 3
+tags: []
+user_id: plato

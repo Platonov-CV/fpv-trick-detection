@@ -1,10 +1,12 @@
 import numpy as np
 import torch
 from matplotlib import pyplot as plt
+from mlflow.models import infer_signature
 from torch import nn, optim
 import torch.nn.functional as f
 from torch.nn import GRU
-from sklearn.metrics import confusion_matrix, ConfusionMatrixDisplay
+from sklearn.metrics import confusion_matrix, ConfusionMatrixDisplay, accuracy_score, precision_score, recall_score
+import mlflow
 
 from src.dataloaders import get_dataloaders
 
@@ -68,48 +70,63 @@ class FPVTrickDetector(nn.Module):
 
 def main():
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+    mlflow.set_tracking_uri("file:../mlruns")
 
-    # load model and data
-    model = FPVTrickDetector(device)
+    with mlflow.start_run(run_name="init model"):
+        # load model and data
+        model = FPVTrickDetector(device)
 
-    train_dl, val_dl = get_dataloaders()
+        train_dl, val_dl = get_dataloaders()
 
-    # training setup
-    num_epochs = 200
-    early_stop_patience = 5
-    optimizer = optim.Adam(model.parameters())
-    criterion = torch.nn.CrossEntropyLoss()
-    scaler = torch.amp.GradScaler('cuda')
+        # training setup
+        num_epochs = 200
+        early_stop_patience = 5
+        optimizer = optim.Adam(model.parameters())
+        criterion = torch.nn.CrossEntropyLoss()
+        scaler = torch.amp.GradScaler('cuda')
 
-    best_val_loss = np.finfo(np.float16).max
-    best_state_dict = model.state_dict()
-    early_stop_counter = 0
+        best_val_loss = np.finfo(np.float16).max
+        best_state_dict = model.state_dict()
+        early_stop_counter = 0
+        train_metric_step = 0
 
-    # training
-    for epoch in range(num_epochs):
-        model.train()
-        for inputs, labels in iter(train_dl):
-            optimizer.zero_grad()
+        # training
+        for epoch in range(num_epochs):
+            # validation
+            if epoch % 5 != 0:
+                continue
+            model.eval()
+            with torch.no_grad():
+                val_losses = []
+                for inputs, labels in iter(val_dl):
+                    with torch.amp.autocast("cuda"):
+                        preds = model(inputs.to(device))
 
-            with torch.amp.autocast("cuda"):
-                preds = model(inputs.to(device))
+                        # rearrange preds from [batch, step, class] to [batch, class, step]
+                        # for CrossEntropyLoss
+                        preds = torch.moveaxis(preds, 2, 1)
 
-                # rearrange preds from [batch, step, class] to [batch, class, step]
-                # for CrossEntropyLoss
-                preds = torch.moveaxis(preds, 2, 1)
+                        val_losses.append(criterion(preds, labels.to(device)).item())
 
-                loss = criterion(preds, labels.to(device))
+                val_loss = sum(val_losses) / len(val_losses)
+                print('Epoch: ', epoch, ', val_loss: ', val_loss)
+                mlflow.log_metric("val_loss", val_loss, step=train_metric_step)
 
-            scaler.scale(loss).backward()
-            scaler.step(optimizer)
-            scaler.update()
+                if val_loss < best_val_loss:
+                    best_val_loss = val_loss
+                    best_state_dict = model.state_dict()
+                    early_stop_counter = 0
+                else:
+                    early_stop_counter += 1
 
-        if epoch % 5 != 0:
-            continue
-        model.eval()
-        with torch.no_grad():
-            val_losses = []
-            for inputs, labels in iter(val_dl):
+                if early_stop_counter == early_stop_patience:
+                    break
+
+            # optimization
+            model.train()
+            for inputs, labels in iter(train_dl):
+                optimizer.zero_grad()
+
                 with torch.amp.autocast("cuda"):
                     preds = model(inputs.to(device))
 
@@ -117,46 +134,65 @@ def main():
                     # for CrossEntropyLoss
                     preds = torch.moveaxis(preds, 2, 1)
 
-                    val_losses.append(criterion(preds, labels.to(device)).item())
+                    loss = criterion(preds, labels.to(device))
 
-            val_loss = sum(val_losses) / len(val_losses)
-            print('Epoch: ', epoch, ', val_loss: ', val_loss)
+                    mlflow.log_metric("train_loss", loss.item(), step=train_metric_step)
 
-            if val_loss < best_val_loss:
-                best_val_loss = val_loss
-                best_state_dict = model.state_dict()
-                early_stop_counter = 0
-            else:
-                early_stop_counter += 1
+                scaler.scale(loss).backward()
+                scaler.step(optimizer)
+                scaler.update()
 
-            if early_stop_counter == early_stop_patience:
-                break
+                train_metric_step += 1
 
-    torch.save(best_state_dict, "../results/model.pt")
-    print("Best val_loss: ", best_val_loss)
+        # reset model to best state
+        model.load_state_dict(best_state_dict)
 
-    # compute and plot confusion matrix
-    model.eval()
-    y_pred = torch.empty(0).to(device)
-    y_true = torch.empty(0).to(device)
-    with torch.no_grad():
-        for inputs, labels in iter(val_dl):
+        # compute and log metrics and artifacts
+        model.eval()
+        y_pred = torch.empty(0).to(device)
+        y_true = torch.empty(0).to(device)
+        with torch.no_grad():
+            for inputs, labels in iter(val_dl):
+                with torch.amp.autocast("cuda"):
+                    preds = model(inputs.to(device))
+                    preds = torch.argmax(preds, dim=2)
+                    preds = torch.flatten(preds)
+
+                    labels = torch.flatten(labels).to(device)
+
+                    y_pred = torch.cat([y_pred, preds])
+                    y_true = torch.cat([y_true, labels])
+        y_pred = y_pred.to('cpu')
+        y_true = y_true.to('cpu')
+
+        labels = [0, 1, 2, 3]
+        display_labels = ['none', 'roll', 'flip', 'spin']
+        cm = confusion_matrix(y_true, y_pred, labels=labels)
+        disp = ConfusionMatrixDisplay(confusion_matrix=cm, display_labels=display_labels)
+        disp.plot()
+        plt.title("Confusion matrix")
+        cm_fig = disp.figure_
+        mlflow.log_figure(cm_fig, "confusion_matrix.png")
+
+        accuracy = accuracy_score(y_true, y_pred)
+        precision = precision_score(y_true, y_pred, average='weighted')
+        recall = recall_score(y_true, y_pred, average='weighted')
+        mlflow.log_metrics(
+            {
+                "accuracy": accuracy,
+                "precision": precision,
+                "recall": recall
+            },
+        )
+
+        # log model
+        inputs, _ = next(iter(val_dl))
+        inputs = inputs.to(device)
+        model.eval()
+        with torch.no_grad():
             with torch.amp.autocast("cuda"):
-                preds = model(inputs.to(device))
-                preds = torch.argmax(preds, dim=2)
-                preds = torch.flatten(preds)
-
-                labels = torch.flatten(labels).to(device)
-
-                y_pred = torch.cat([y_pred, preds])
-                y_true = torch.cat([y_true, labels])
-
-    labels = [0, 1, 2, 3]
-    display_labels = ['none', 'roll', 'flip', 'spin']
-    cm = confusion_matrix(y_true.cpu(), y_pred.cpu(), labels=labels)
-    disp = ConfusionMatrixDisplay(confusion_matrix=cm, display_labels=display_labels)
-    disp.plot()
-    plt.show()
+                signature = infer_signature(inputs, model(inputs))
+        mlflow.pytorch.log_model(model, signature=signature)
 
 
 if __name__ == "__main__":
