@@ -8,7 +8,7 @@ import pandas as pd
 from ast import literal_eval
 
 
-label_lookup = {
+LABEL_LOOKUP = {
     'none': 0,
     'roll': 1,
     'flip': 2,
@@ -65,7 +65,7 @@ class FPVTrickDataset(Dataset):
                 segment_index += 1
                 cur_segment = label_segments.iloc[segment_index]
             label = cur_segment.metadata["TEMPORAL-SEGMENTS"]
-            label_int = label_lookup[label]
+            label_int = LABEL_LOOKUP[label]
             labels.append(label_int)
         labels = torch.tensor(labels)
 
