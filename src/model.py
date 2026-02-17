@@ -14,14 +14,17 @@ from src.dataloaders import get_dataloaders
 NUM_CLASSES = 4
 
 
-# processes 320x320 2 channel input into a 128-long 1x1 feature vector
 class CNN(nn.Module):
     def __init__(self, device):
         super().__init__()
 
-        self.conv1 = nn.Conv2d(2, 8, 5, 5).to(device)
-        self.conv2 = nn.Conv2d(8, 32, 8, 8).to(device)
-        self.conv3 = nn.Conv2d(32, 128, 8).to(device)
+        # 320x320
+        self.conv1 = nn.Conv2d(2, 64, 5, 5).to(device)
+        # 64x64
+        self.conv2 = nn.Conv2d(64, 128, 8, 8).to(device)
+        # 8x8
+        self.conv3 = nn.Conv2d(128, 256, 8).to(device)
+        # 1x1
 
 
     def forward(self, x):
@@ -39,11 +42,11 @@ class FPVTrickDetector(nn.Module):
         self.cnn = CNN(device=device)
 
         self.rnn = GRU(
-            input_size=128, hidden_size=128, num_layers=1, batch_first=True,
+            input_size=256, hidden_size=256, num_layers=1, batch_first=True,
             bidirectional=True, device=device
         )
 
-        self.fc = nn.Linear(in_features=256, out_features=NUM_CLASSES, device=device)
+        self.fc = nn.Linear(in_features=512, out_features=NUM_CLASSES, device=device)
 
 
     def forward(self, x):
@@ -59,7 +62,7 @@ class FPVTrickDetector(nn.Module):
 
         # reshape from (B * T, F) to (B, T, F) for RNN
         # F - feature
-        x = torch.reshape(x, (b, t, 128))
+        x = torch.reshape(x, (b, t, 256))
 
         x, _ = self.rnn(x)
 
@@ -72,7 +75,7 @@ def main():
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
     mlflow.set_tracking_uri("file:../mlruns")
 
-    with mlflow.start_run(run_name="weighted cross entropy loss"):
+    with mlflow.start_run(run_name="more CNN filters"):
         # load model and data
         model = FPVTrickDetector(device)
 

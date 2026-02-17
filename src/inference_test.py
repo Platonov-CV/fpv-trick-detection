@@ -10,7 +10,7 @@ from src.model import FPVTrickDetector
 # init model
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 mlflow.set_tracking_uri("file:../mlruns")
-model = mlflow.pytorch.load_model(f"models:/FPVTrickDetector/1")
+model = mlflow.pytorch.load_model(f"models:/FPVTrickDetector/2")
 
 # load optical input data
 opt_cap = cv2.VideoCapture("../data/inference_test/Back to the hotel - RAW FPV Drone flight [uaLQGt52JJM] 1 _opt.mp4")
