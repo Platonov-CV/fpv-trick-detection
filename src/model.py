@@ -72,7 +72,7 @@ def main():
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
     mlflow.set_tracking_uri("file:../mlruns")
 
-    with mlflow.start_run(run_name="init model"):
+    with mlflow.start_run(run_name="weighted cross entropy loss"):
         # load model and data
         model = FPVTrickDetector(device)
 
@@ -82,7 +82,10 @@ def main():
         num_epochs = 200
         early_stop_patience = 5
         optimizer = optim.Adam(model.parameters())
-        criterion = torch.nn.CrossEntropyLoss()
+        loss_weights = torch.tensor(
+            [0.005012037173141494, 0.13020393102887085, 0.22478045542458383, 0.6400035763734039]
+        ).to(device)
+        criterion = torch.nn.CrossEntropyLoss(weight=loss_weights)
         scaler = torch.amp.GradScaler('cuda')
 
         best_val_loss = np.finfo(np.float16).max
@@ -93,8 +96,6 @@ def main():
         # training
         for epoch in range(num_epochs):
             # validation
-            if epoch % 5 != 0:
-                continue
             model.eval()
             with torch.no_grad():
                 val_losses = []

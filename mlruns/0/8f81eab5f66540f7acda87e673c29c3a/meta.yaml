@@ -1,0 +1,14 @@
+artifact_uri: file:D:/resources/cv projects/260202 FPVTrickDetection/src/../mlruns/0/8f81eab5f66540f7acda87e673c29c3a/artifacts
+end_time: 1771268696809
+entry_point_name: ''
+experiment_id: '0'
+lifecycle_stage: active
+run_id: 8f81eab5f66540f7acda87e673c29c3a
+run_name: weighted cross entropy loss
+source_name: ''
+source_type: 4
+source_version: ''
+start_time: 1771267011952
+status: 3
+tags: []
+user_id: plato

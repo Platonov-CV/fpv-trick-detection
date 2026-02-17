@@ -1,0 +1,10 @@
+artifact_location: file:D:/resources/cv projects/260202 FPVTrickDetection/src/../mlruns/0/models/m-0d9ba446bec04bef8bb7f55b2eea4ae7/artifacts
+creation_timestamp: 1771268692354
+experiment_id: '0'
+last_updated_timestamp: 1771268696801
+model_id: m-0d9ba446bec04bef8bb7f55b2eea4ae7
+model_type: null
+name: puzzled-bird-589
+source_run_id: 8f81eab5f66540f7acda87e673c29c3a
+status: 2
+status_message: null

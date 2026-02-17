@@ -87,8 +87,15 @@ def get_dataloaders():
 def main():
     train_dl, val_dl = get_dataloaders()
 
+    all_labels = torch.empty(0)
     for inputs, labels in iter(train_dl):
-        pass
+        labels = torch.flatten(labels)
+        all_labels = torch.cat([all_labels, labels])
+    label, counts = np.unique(all_labels.numpy(), return_counts=True)
+    labels_num = sum(counts)
+    dists = [count / labels_num for count in counts]
+    label_dist = dict(zip(label, dists))
+    print(label_dist)
 
 
 if __name__ == "__main__":
