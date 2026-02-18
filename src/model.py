@@ -26,10 +26,14 @@ class CNN(nn.Module):
         self.conv3 = nn.Conv2d(128, 256, 8).to(device)
         # 1x1
 
+        self.drop = nn.Dropout(p=0.2)
+
 
     def forward(self, x):
         x = f.relu(self.conv1(x))
+        x = self.drop(x)
         x = f.relu(self.conv2(x))
+        x = self.drop(x)
         x = f.relu(self.conv3(x))
 
         return x
@@ -75,7 +79,7 @@ def main():
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
     mlflow.set_tracking_uri("file:../mlruns")
 
-    with mlflow.start_run(run_name="more CNN filters"):
+    with mlflow.start_run(run_name="less dropout"):
         # load model and data
         model = FPVTrickDetector(device)
 

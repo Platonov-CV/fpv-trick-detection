@@ -10,7 +10,7 @@ from src.model import FPVTrickDetector
 # init model
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 mlflow.set_tracking_uri("file:../mlruns")
-model = mlflow.pytorch.load_model(f"models:/FPVTrickDetector/2")
+model = mlflow.pytorch.load_model(f"models:/FPVTrickDetector/3")
 
 # load optical input data
 opt_cap = cv2.VideoCapture("../data/inference_test/Back to the hotel - RAW FPV Drone flight [uaLQGt52JJM] 1 _opt.mp4")
@@ -50,10 +50,10 @@ for frame_label_tensor in frame_labels:
     frame_label = frame_label_tensor.item()
     label_str = [k for k, v in LABEL_LOOKUP.items() if v == frame_label][0]
 
-    frame = cv2.rectangle(frame, color=(0, 0, 0), thickness=-1, pt1=(100, 100), pt2=(150, 50))
+    frame = cv2.rectangle(frame, color=(0, 0, 0), thickness=-1, pt1=(100, 100), pt2=(200, 100))
     frame = cv2.putText(
         frame, text=label_str, fontFace=cv2.FONT_HERSHEY_PLAIN,
-        fontScale=1, thickness=1, color=(255, 255, 255), org=(100, 100)
+        fontScale=3, thickness=1, color=(255, 255, 255), org=(100, 100)
     )
 
     cv2.imshow('inference test', frame)
