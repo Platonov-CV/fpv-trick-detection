@@ -4,7 +4,7 @@ from matplotlib import pyplot as plt
 from mlflow.models import infer_signature
 from torch import nn, optim
 import torch.nn.functional as f
-from torch.nn import GRU
+from torch.nn import GRU, LSTM
 from sklearn.metrics import confusion_matrix, ConfusionMatrixDisplay, accuracy_score, precision_score, recall_score
 import mlflow
 
@@ -79,7 +79,7 @@ def main():
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
     mlflow.set_tracking_uri("file:../mlruns")
 
-    with mlflow.start_run(run_name="less dropout"):
+    with mlflow.start_run(run_name="remove optical flow normalization"):
         # load model and data
         model = FPVTrickDetector(device)
 

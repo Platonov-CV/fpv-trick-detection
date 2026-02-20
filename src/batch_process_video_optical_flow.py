@@ -17,11 +17,12 @@ videos_to_process = [
     ]
 ]
 
-for path in videos_to_process:
+for path_i, path in enumerate(videos_to_process):
     cap = cv2.VideoCapture(path)
 
     fourcc = cv2.VideoWriter.fourcc('m','p','4','v')
     fps = cap.get(cv2.CAP_PROP_FPS)
+    frame_count = cap.get(cv2.CAP_PROP_FRAME_COUNT)
     out = cv2.VideoWriter(
         os.path.join(Path("../data/videos_optical_flow/"), path.name),
         fourcc,
@@ -39,7 +40,10 @@ for path in videos_to_process:
     frame_index = 0
 
     while True:
-        print("Calculating optical flow for frame: ", frame_index, ", ", path)
+        print(
+            "Calculating optical flow for frame: ", frame_index, "/", frame_count, " || "
+            "video ", path_i + 1, "/", len(videos_to_process), " - ", path
+        )
 
         # read frame
         ret, frame_cur = cap.read()
@@ -56,7 +60,7 @@ for path in videos_to_process:
 
         # draw flow
         img_hsv[:, :, 0] = ang * 180 / np.pi / 2
-        img_hsv[:, :, 2] = cv2.normalize(mag, None, 0, 255, cv2.NORM_MINMAX)
+        img_hsv[:, :, 2] = mag
         img_bgr = cv2.cvtColor(img_hsv, cv2.COLOR_HSV2BGR)
 
         # write optical flow frame to file

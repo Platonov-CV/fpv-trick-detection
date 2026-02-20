@@ -87,15 +87,22 @@ def get_dataloaders():
 def main():
     train_dl, val_dl = get_dataloaders()
 
-    all_labels = torch.empty(0)
-    for inputs, labels in iter(train_dl):
-        labels = torch.flatten(labels)
-        all_labels = torch.cat([all_labels, labels])
-    label, counts = np.unique(all_labels.numpy(), return_counts=True)
-    labels_num = sum(counts)
-    dists = [count / labels_num for count in counts]
-    label_dist = dict(zip(label, dists))
-    print(label_dist)
+    # check dataloader input
+    for input, label in iter(train_dl):
+        for seq_flow in input:
+            print("frame min: " + str(torch.min(seq_flow)) + " max: " + str(torch.max(seq_flow)))
+            for frame_opt in seq_flow:
+                frame_opt = torch.moveaxis(frame_opt, 0, 2)
+                third_color_channel = torch.zeros(320, 320, 1)
+                frame_opt = torch.cat([frame_opt, third_color_channel], dim=2)
+                # frame_opt *= 255
+                frame = frame_opt.numpy()
+
+                cv2.imshow('dataset test', frame)
+
+                if cv2.waitKey(30) & 0xFF == ord('q'):
+                    break
+
 
 
 if __name__ == "__main__":

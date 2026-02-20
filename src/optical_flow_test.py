@@ -24,7 +24,7 @@ def main():
     root = os.getcwd()
     video_path = os.path.join(
         root,
-        "D:/downloads/fpv-drone-crash-compilation-crashes-failsafes-ytshorts.savetube.vip.mp4"
+        "../data/videos_raw/Back to the hotel - RAW FPV Drone flight [uaLQGt52JJM] 1.mp4"
     )
     video_cap_obj = cv.VideoCapture(video_path)
 
@@ -48,8 +48,8 @@ def main():
         mag, ang = cv.cartToPolar(flow[:, :, 0], flow[:, :, 1])
 
         # draw flow
-        img_hsv[:, :, 0] = ang*180 / np.pi / 2
-        img_hsv[:, :, 2] = cv.normalize(mag, None, 0, 255, cv.NORM_MINMAX)
+        img_hsv[:, :, 0] = ang * 180 / np.pi / 2
+        img_hsv[:, :, 2] = mag
         img_bgr = cv.cvtColor(img_hsv, cv.COLOR_HSV2BGR)
 
         # draw average motion direction
