@@ -12,6 +12,8 @@ from src.dataloaders import get_dataloaders
 
 
 NUM_CLASSES = 4
+NUM_EPOCHS = 200
+EARLY_STOP_PATIENCE = 5
 
 
 class CNN(nn.Module):
@@ -86,8 +88,6 @@ def main():
         train_dl, val_dl = get_dataloaders()
 
         # training setup
-        num_epochs = 200
-        early_stop_patience = 5
         optimizer = optim.Adam(model.parameters())
         loss_weights = torch.tensor(
             [0.005012037173141494, 0.13020393102887085, 0.22478045542458383, 0.6400035763734039]
@@ -101,7 +101,7 @@ def main():
         train_metric_step = 0
 
         # training
-        for epoch in range(num_epochs):
+        for epoch in range(NUM_EPOCHS):
             # validation
             model.eval()
             with torch.no_grad():
@@ -127,7 +127,7 @@ def main():
                 else:
                     early_stop_counter += 1
 
-                if early_stop_counter == early_stop_patience:
+                if early_stop_counter == EARLY_STOP_PATIENCE:
                     break
 
             # optimization

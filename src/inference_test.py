@@ -8,7 +8,8 @@ import torch
 from src.dataloaders import LABEL_LOOKUP
 
 
-VIDEO_NAME = "Back to the hotel - RAW FPV Drone flight [uaLQGt52JJM] 2.mp4"
+VIDEO_NAME = "Back to the hotel - RAW FPV Drone flight [uaLQGt52JJM] 1.mp4"
+MODEL = f"models:/FPVTrickDetector/4"
 
 
 @dataclass
@@ -60,7 +61,7 @@ def main():
     # init model
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
     mlflow.set_tracking_uri("file:../mlruns")
-    model = mlflow.pytorch.load_model(f"models:/FPVTrickDetector/4")
+    model = mlflow.pytorch.load_model(MODEL)
 
     # load optical input data
     opt_cap = cv2.VideoCapture("../data/videos_optical_flow/" + VIDEO_NAME)
