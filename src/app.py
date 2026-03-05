@@ -1,14 +1,16 @@
+import asyncio
 import os
 import subprocess
 import tempfile
 import time
+import uuid
 
 import aiofiles
 import cv2
 import mlflow
 import numpy as np
 import torch
-from fastapi import FastAPI, UploadFile
+from fastapi import FastAPI, UploadFile, BackgroundTasks
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import StreamingResponse
 
@@ -38,6 +40,47 @@ device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 mlflow.set_tracking_uri("file:./mlruns")
 model = mlflow.pytorch.load_model(MODEL)
 
+jobs = {}  # job_id → {"progress": [], "done": False, "result_path": None}
+
+
+@app.post("/process_video/")
+async def process_video(video_file: UploadFile, background_tasks: BackgroundTasks):
+    job_id = str(uuid.uuid4())
+    jobs[job_id] = {"progress": [], "done": False, "result_path": None}
+    video_bytes = await video_file.read()
+    background_tasks.add_task(run_processing, video_bytes, job_id)
+    return {"job_id": job_id}
+
+
+@app.get("/process_video/{job_id}/progress")
+async def progress(job_id: str):
+    async def stream():
+        while not jobs[job_id]["done"]:
+            while jobs[job_id]["progress"]:
+                msg = jobs[job_id]["progress"].pop(0)
+                yield f"data: {msg}\n\n"
+            await asyncio.sleep(0.2)
+        yield "data: __done__\n\n"
+    return StreamingResponse(stream(), media_type="text/event-stream")
+
+
+@app.get("/process_video/{job_id}/result")
+async def result(job_id: str):
+    path = jobs[job_id]["result_path"]
+    return StreamingResponse(
+        stream_video(path),
+        media_type="video/mp4",
+        headers={
+            "Content-Disposition": "inline; filename=temp_video.mp4",
+            "Accept-Ranges": "bytes"  # Important for video seeking
+        }
+    )
+
+
+def log_event(job_id, log_str: str):
+    print(log_str)
+    jobs[job_id]["progress"].append(log_str)
+
 
 def remove_temp_file(file_path: str):
     for _ in range(10):
@@ -66,25 +109,12 @@ async def stream_video(file_path: str):
             remove_temp_file(file_path)
 
 
-@app.post("/process_video/")
-async def process_video(video_file: UploadFile):
+def run_processing(video_bytes: bytes, job_id):
     # save temp raw video
-    raw_bytes = await video_file.read()
     raw_temp = tempfile.NamedTemporaryFile(delete=False, suffix=".mp4")
-    raw_temp.write(raw_bytes)
+    raw_temp.write(video_bytes)
     raw_temp_path = raw_temp.name
-    print("saved temp raw video to " + raw_temp_path)
-
-    # fourcc = cv2.VideoWriter.fourcc('m', 'p', '4', 'v')
-    # opt_temp = tempfile.NamedTemporaryFile(suffix=".mp4", delete=False)
-    # opt_temp_path = opt_temp.name
-    # opt_writer = cv2.VideoWriter(
-    #     opt_temp_path,
-    #     fourcc,
-    #     fps,
-    #     (320, 320)
-    # )
-    # print("started writing temp optical flow video to " + opt_temp_path)
+    log_event(job_id, "saved temp raw video to " + raw_temp_path)
 
     # start writing optical flow
     raw_cap = cv2.VideoCapture(raw_temp_path)
@@ -98,7 +128,7 @@ async def process_video(video_file: UploadFile):
 
     # calculate optical flow
     for frame_index in range(frame_count):
-        print("Calculating optical flow for frame: ", frame_index + 1, "/", frame_count)
+        log_event(job_id, "Calculating optical flow for frame: " + str(frame_index + 1) + "/" + str(frame_count))
 
         # read frame
         ret, frame_cur = raw_cap.read()
@@ -125,29 +155,11 @@ async def process_video(video_file: UploadFile):
         # save to input tensor
         seq_flow[frame_index, :, :, :] = torch.tensor(flow_proc)
 
-        # # draw flow
-        # img_hsv[:, :, 0] = ang * 180 / np.pi / 2
-        # img_hsv[:, :, 2] = mag
-        # img_bgr = cv2.cvtColor(img_hsv, cv2.COLOR_HSV2BGR)
-        #
-        # # write optical flow frame to file
-        # opt_writer.write(img_bgr)
-
         img_prev = img_cur
-
-
-    # for frame_index in range(frame_count):
-    #     _, frame_cur = opt_cap.read()
-    #
-    #     flow = cv2.cvtColor(frame_cur, cv2.COLOR_BGR2HSV)
-    #     flow = np.delete(flow, 1, axis=2)
-    #     flow = flow / 255.
-    #
-    #     seq_flow[frame_index, :, :, :] = torch.tensor(flow)
 
     seq_flow = torch.moveaxis(seq_flow, 3, 1)
     inputs = seq_flow.unsqueeze(dim=0).to(device)
-    print("calculated optical flow data")
+    log_event(job_id, "calculated optical flow data")
 
     # predict frame labels
     with torch.inference_mode():
@@ -155,7 +167,7 @@ async def process_video(video_file: UploadFile):
             preds = model(inputs)
     preds = torch.squeeze(preds)
     frame_labels = torch.argmax(preds, dim=1)
-    print("predicted frame labels")
+    log_event(job_id, "predicted frame labels")
 
     # start writing output video
     fourcc = cv2.VideoWriter.fourcc('m', 'p', '4', 'v')
@@ -174,11 +186,11 @@ async def process_video(video_file: UploadFile):
     trick_popups = []
     prev_trick = "none"
 
-    print("started writing output video")
+    log_event(job_id, "started writing output video")
 
     # write output video frame by frame
     for i, frame_label_tensor in enumerate(frame_labels):
-        print("Writing output frame: ", i + 1, "/", len(frame_labels))
+        log_event(job_id, "Writing output frame: " + str(i + 1) + "/" + str(len(frame_labels)))
 
         _, frame = raw_cap.read()
 
@@ -219,9 +231,10 @@ async def process_video(video_file: UploadFile):
     out_writer.release()
     raw_cap.release()
     remove_temp_file(raw_temp_path)
-    print("finished writing output video")
+    log_event(job_id, "finished writing output video")
 
     # re-encode to H.264
+    log_event(job_id, "encoding output video for browser compatibility")
     out_encoded_temp_path = tempfile.NamedTemporaryFile(suffix=".mp4", delete=False).name
     subprocess.run([
         'ffmpeg', '-y',
@@ -231,173 +244,7 @@ async def process_video(video_file: UploadFile):
         out_encoded_temp_path
     ], check=True)
     remove_temp_file(out_temp_path)
-    print("recoded output video for browser compatibility")
+    log_event(job_id, "encoded output video for browser compatibility")
 
-    # stream output video
-    return StreamingResponse(
-        stream_video(out_encoded_temp_path),
-        media_type="video/mp4",
-        headers={
-            "Content-Disposition": "inline; filename=temp_video.mp4",
-            "Accept-Ranges": "bytes"  # Important for video seeking
-        }
-    )
-
-
-# # version with write>read optical flow pipeline
-# @app.post("/process_video/")
-# async def process_video(video_file: UploadFile):
-#     # save temp raw video
-#     raw_bytes = await video_file.read()
-#     raw_temp = tempfile.NamedTemporaryFile(delete=False, suffix=".mp4")
-#     raw_temp.write(raw_bytes)
-#     raw_temp_path = raw_temp.name
-#     print("saved temp raw video to " + raw_temp_path)
-#
-#     # start writing optical flow
-#     raw_cap = cv2.VideoCapture(raw_temp_path)
-#
-#     fourcc = cv2.VideoWriter.fourcc('m', 'p', '4', 'v')
-#     fps = raw_cap.get(cv2.CAP_PROP_FPS)
-#     frame_count = raw_cap.get(cv2.CAP_PROP_FRAME_COUNT)
-#     opt_temp = tempfile.NamedTemporaryFile(suffix=".mp4", delete=False)
-#     opt_temp_path = opt_temp.name
-#     opt_writer = cv2.VideoWriter(
-#         opt_temp_path,
-#         fourcc,
-#         fps,
-#         (320, 320)
-#     )
-#     print("started writing temp optical flow video to " + opt_temp_path)
-#
-#     # get HSV image
-#     _, frame_first = raw_cap.read()
-#     img_prev = process_frame_for_optical_flow(frame_first)
-#     img_hsv = np.zeros_like(frame_first)
-#     img_hsv = downscale_frame(img_hsv)
-#     img_hsv[:, :, 1] = 255
-#
-#     frame_index = 0
-#
-#     # calculate and write opticl flow video
-#     while True:
-#         print("Calculating optical flow for frame: ", frame_index, "/", frame_count)
-#
-#         # read frame
-#         ret, frame_cur = raw_cap.read()
-#         if not ret:
-#             break
-#         img_cur = process_frame_for_optical_flow(frame_cur)
-#
-#         # calculate flow
-#         flow = cv2.calcOpticalFlowFarneback(
-#             prev=img_prev, next=img_cur, flow=None, pyr_scale=.5, levels=3, winsize=15,
-#             iterations=3, poly_n=5, poly_sigma=1.2, flags=cv2.OPTFLOW_FARNEBACK_GAUSSIAN
-#         )
-#         mag, ang = cv2.cartToPolar(flow[:, :, 0], flow[:, :, 1])
-#
-#         # draw flow
-#         img_hsv[:, :, 0] = ang * 180 / np.pi / 2
-#         img_hsv[:, :, 2] = mag
-#         img_bgr = cv2.cvtColor(img_hsv, cv2.COLOR_HSV2BGR)
-#
-#         # write optical flow frame to file
-#         opt_writer.write(img_bgr)
-#
-#         img_prev = img_cur
-#         frame_index += 1
-#
-#     opt_writer.release()
-#     print("successfully written optical flow to " + opt_temp_path)
-#
-#     # load optical flow input data
-#     opt_cap = cv2.VideoCapture(opt_temp_path)
-#     frame_count = int(opt_cap.get(cv2.CAP_PROP_FRAME_COUNT))
-#
-#     seq_flow = torch.empty(frame_count, 320, 320, 2).half()
-#
-#     for frame_index in range(frame_count):
-#         _, frame_cur = opt_cap.read()
-#
-#         flow = cv2.cvtColor(frame_cur, cv2.COLOR_BGR2HSV)
-#         flow = np.delete(flow, 1, axis=2)
-#         flow = flow / 255.
-#
-#         seq_flow[frame_index, :, :, :] = torch.tensor(flow)
-#
-#     seq_flow = torch.moveaxis(seq_flow, 3, 1)
-#     inputs = seq_flow.unsqueeze(dim=0).to(device)
-#
-#     opt_cap.release()
-#     os.remove(opt_temp_path)
-#
-#     print("loaded optical flow data to memory")
-#
-#     # predict frame labels
-#     with torch.inference_mode():
-#         with torch.amp.autocast("cuda"):
-#             preds = model(inputs)
-#     preds = torch.squeeze(preds)
-#     frame_labels = torch.argmax(preds, dim=1)
-#
-#     frame_step_ms = int(1000. / fps)
-#
-#     fourcc = cv2.VideoWriter.fourcc('m', 'p', '4', 'v')
-#     fps = raw_cap.get(cv2.CAP_PROP_FPS)
-#     opt_temp = tempfile.NamedTemporaryFile(suffix=".mp4", delete=False)
-#     out_temp_path = opt_temp.name
-#     out_writer = cv2.VideoWriter(
-#         out_temp_path,
-#         fourcc,
-#         fps,
-#         (320, 320)
-#     )
-#     print("started writing output video")
-#
-#     # add preds overlay and display frames
-#     trick_popups = []
-#     prev_trick = "none"
-#     for i, frame_label_tensor in enumerate(frame_labels):
-#         _, frame = raw_cap.read()
-#
-#         frame_label = frame_label_tensor.item()
-#
-#         overlay_org = [100, 100]
-#         frame_preds = torch.softmax(preds[i], dim=0)
-#         for label, label_key in LABEL_LOOKUP.items():
-#             if label_key == frame_label:
-#                 color = (0, 0, 0)
-#                 bg_color = (0, 255, 0)
-#             else:
-#                 color = (255, 255, 255)
-#                 bg_color = (0, 0, 0)
-#
-#             frame, tw, th = draw_text_with_bg(frame, label, overlay_org, color, bg_color)
-#
-#             prob_org = overlay_org.copy()
-#             prob_org[0] += 100
-#             label_prob = round(frame_preds[label_key].item(), 2)
-#             frame, _, _ = draw_text_with_bg(frame, str(label_prob), prob_org, color, bg_color)
-#
-#             overlay_org[1] += th
-#
-#         # process trick popups
-#         curr_trick = [k for k, v in LABEL_LOOKUP.items() if v == frame_label][0]
-#         if prev_trick != curr_trick:
-#             if len(trick_popups) > 0:
-#                 trick_popups[-1].moving = True
-#             if curr_trick != "none":
-#                 trick_popups.append(TrickPopup(curr_trick, [600, 600], 60, False))
-#
-#         trick_popups, frame = process_trick_popups(trick_popups, frame)
-#         prev_trick = curr_trick
-#
-#         out_writer.write(frame)
-#
-#     out_writer.release()
-#     raw_cap.release()
-#     os.remove(raw_temp_path)
-#     print("finished writing output video")
-#
-#     # stream output video
-#     # ...
+    jobs[job_id]["result_path"] = out_encoded_temp_path
+    jobs[job_id]["done"] = True
