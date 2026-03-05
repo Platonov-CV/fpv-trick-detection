@@ -4,7 +4,7 @@ from matplotlib import pyplot as plt
 from mlflow.models import infer_signature
 from torch import nn, optim
 import torch.nn.functional as f
-from torch.nn import GRU, LSTM
+from torch.nn import GRU
 from sklearn.metrics import confusion_matrix, ConfusionMatrixDisplay, accuracy_score, precision_score, recall_score
 import mlflow
 

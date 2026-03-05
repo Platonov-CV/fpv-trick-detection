@@ -4,7 +4,7 @@ from pathlib import Path
 import cv2
 import numpy as np
 
-from src.optical_flow_test import process_frame_for_optical_flow, downscale_frame
+from src.optical_flow import process_frame_for_optical_flow, downscale_frame
 
 
 raw_video_paths = [f for f in Path("../data/videos_raw").iterdir()]
