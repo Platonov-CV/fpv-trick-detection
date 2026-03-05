@@ -44,10 +44,18 @@ jobs = {}  # job_id → {"progress": [], "done": False, "result_path": None}
 
 
 @app.post("/process_video/")
-async def process_video(video_file: UploadFile, background_tasks: BackgroundTasks):
+async def process_video(
+    background_tasks: BackgroundTasks,
+    video_file: UploadFile | None = None,
+    test_video: bool = False,
+):
     job_id = str(uuid.uuid4())
     jobs[job_id] = {"progress": [], "done": False, "result_path": None}
-    video_bytes = await video_file.read()
+    if not test_video:
+        video_bytes = await video_file.read()
+    else:
+        with open("./data/test/Back to the hotel - RAW FPV Drone flight [uaLQGt52JJM] 2.mp4", 'rb') as file:
+            video_bytes = file.read()
     background_tasks.add_task(run_processing, video_bytes, job_id)
     return {"job_id": job_id}
 
