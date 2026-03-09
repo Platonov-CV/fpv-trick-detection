@@ -1,0 +1,7 @@
+fastapi[standard]
+opencv-python-headless
+numpy
+aiofiles
+pandas
+mlflow
+onnxruntime

@@ -7,12 +7,12 @@ import uuid
 
 import aiofiles
 import cv2
-import mlflow
 import numpy as np
 import torch
 from fastapi import FastAPI, UploadFile, BackgroundTasks
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import StreamingResponse
+import onnxruntime as ort
 
 from src.dataloaders import LABEL_LOOKUP
 from src.inference import draw_text_with_bg, TrickPopup, process_trick_popups
@@ -36,9 +36,7 @@ app.add_middleware(
 )
 
 # init model
-device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
-mlflow.set_tracking_uri("file:./mlruns")
-model = mlflow.pytorch.load_model(MODEL)
+session = ort.InferenceSession("./model-onnx/model.onnx")
 
 jobs = {}  # job_id → {"progress": [], "done": False, "result_path": None}
 
@@ -129,14 +127,14 @@ def run_processing(video_bytes: bytes, job_id):
     frame_count = int(raw_cap.get(cv2.CAP_PROP_FRAME_COUNT))
     _, frame_first = raw_cap.read()
     img_prev = process_frame_for_optical_flow(frame_first)
-    seq_flow = torch.empty(frame_count, 320, 320, 2).half()
+    seq_flow = torch.empty(frame_count, 320, 320, 2)
     img_hsv = np.zeros_like(frame_first)
     img_hsv = downscale_frame(img_hsv)
     img_hsv[:, :, 1] = 255
 
     # calculate optical flow
     for frame_index in range(frame_count):
-        log_event(job_id, "Calculating optical flow for frame: " + str(frame_index + 1) + "/" + str(frame_count))
+        log_event(job_id, "calculating optical flow for frame: " + str(frame_index + 1) + "/" + str(frame_count))
 
         # read frame
         ret, frame_cur = raw_cap.read()
@@ -166,13 +164,12 @@ def run_processing(video_bytes: bytes, job_id):
         img_prev = img_cur
 
     seq_flow = torch.moveaxis(seq_flow, 3, 1)
-    inputs = seq_flow.unsqueeze(dim=0).to(device)
+    inputs = seq_flow.unsqueeze(dim=0).numpy()
     log_event(job_id, "calculated optical flow data")
 
     # predict frame labels
-    with torch.inference_mode():
-        with torch.amp.autocast("cuda"):
-            preds = model(inputs)
+    log_event(job_id, "predicting frame labels...")
+    preds = torch.tensor(session.run(["output"], {"input": inputs}))
     preds = torch.squeeze(preds)
     frame_labels = torch.argmax(preds, dim=1)
     log_event(job_id, "predicted frame labels")
@@ -194,11 +191,11 @@ def run_processing(video_bytes: bytes, job_id):
     trick_popups = []
     prev_trick = "none"
 
-    log_event(job_id, "started writing output video")
+    log_event(job_id, "started writing output video...")
 
     # write output video frame by frame
     for i, frame_label_tensor in enumerate(frame_labels):
-        log_event(job_id, "Writing output frame: " + str(i + 1) + "/" + str(len(frame_labels)))
+        log_event(job_id, "writing output frame: " + str(i + 1) + "/" + str(len(frame_labels)))
 
         _, frame = raw_cap.read()
 
@@ -242,7 +239,7 @@ def run_processing(video_bytes: bytes, job_id):
     log_event(job_id, "finished writing output video")
 
     # re-encode to H.264
-    log_event(job_id, "encoding output video for browser compatibility")
+    log_event(job_id, "encoding output video for browser compatibility...")
     out_encoded_temp_path = tempfile.NamedTemporaryFile(suffix=".mp4", delete=False).name
     subprocess.run([
         'ffmpeg', '-y',
