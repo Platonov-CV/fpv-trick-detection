@@ -7,6 +7,7 @@ import uuid
 
 import aiofiles
 import cv2
+import imageio_ffmpeg
 import numpy as np
 import torch
 from fastapi import FastAPI, UploadFile, BackgroundTasks
@@ -39,6 +40,8 @@ app.add_middleware(
 session = ort.InferenceSession("./model-onnx/model.onnx")
 
 jobs = {}  # job_id → {"progress": [], "done": False, "result_path": None}
+
+ffmpeg_path = imageio_ffmpeg.get_ffmpeg_exe()
 
 
 @app.post("/process_video/")
@@ -241,13 +244,17 @@ def run_processing(video_bytes: bytes, job_id):
     # re-encode to H.264
     log_event(job_id, "encoding output video for browser compatibility...")
     out_encoded_temp_path = tempfile.NamedTemporaryFile(suffix=".mp4", delete=False).name
-    subprocess.run([
-        'ffmpeg', '-y',
-        '-i', out_temp_path,
-        '-vcodec', 'libx264',
-        '-pix_fmt', 'yuv420p',  # required for browser compatibility
-        out_encoded_temp_path
-    ], check=True)
+    ffmpeg_result = subprocess.run([
+            ffmpeg_path, '-y',
+            '-i', out_temp_path,
+            '-vcodec', 'libx264',
+            '-pix_fmt', 'yuv420p',  # required for browser compatibility
+            out_encoded_temp_path
+        ],
+        capture_output=True, text=True
+    )
+    log_event(job_id, ffmpeg_result.stdout)
+    log_event(job_id, ffmpeg_result.stderr)
     remove_temp_file(out_temp_path)
     log_event(job_id, "encoded output video for browser compatibility")
 

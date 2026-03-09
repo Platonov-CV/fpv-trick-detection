@@ -1,7 +1,8 @@
 fastapi[standard]
 opencv-python-headless
-numpy
+numpy<2.0
 aiofiles
 pandas
 mlflow
 onnxruntime
+imageio-ffmpeg
