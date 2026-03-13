@@ -55,7 +55,7 @@ async def process_video(
     if not test_video:
         video_bytes = await video_file.read()
     else:
-        with open("./data/test/Back to the hotel - RAW FPV Drone flight [uaLQGt52JJM] 2.mp4", 'rb') as file:
+        with open("./data/test/Back to the hotel - RAW FPV Drone flight [uaLQGt52JJM] 1.mp4", 'rb') as file:
             video_bytes = file.read()
     background_tasks.add_task(run_processing, video_bytes, job_id)
     return {"job_id": job_id}
