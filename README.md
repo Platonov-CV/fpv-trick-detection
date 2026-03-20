@@ -6,7 +6,13 @@ The goal of this project was to develop a custom model for classifying frames of
 
 Model should be able to correctly label frames from video containing following tricks:
 
-> TRICK GIFS
+<table>
+  <tr>
+    <td align="center"><img src="https://github.com/user-attachments/assets/cbb8c509-5cfa-4b48-ad23-cad7c36a6ca3" width="200"><br>roll</td>
+    <td align="center"><img src="https://github.com/user-attachments/assets/1b19f219-41a8-4b56-9660-0dd06572fb4a" width="200"><br>flip</td>
+    <td align="center"><img src="https://github.com/user-attachments/assets/2cf3ec56-4344-4fcc-a709-8b83eff3da7c" width="200"><br>spin</td>
+  </tr>
+</table>
 
 ## Overview
 
@@ -18,7 +24,7 @@ Model architecture consists of two blocks:
 - CNN - for extracting motion features from each optical flow frame
 - bidirectional GRU - for modeling temporal relations between optical flow frame sequences and ground truth trick labels
 
-> WHOLE DATA PIPELINE GRAPH
+<img width="500" alt="fpv-trick-detection_pipeline-diagram drawio" src="https://github.com/user-attachments/assets/5750156f-20df-4ec9-b870-c378cca6806a" />
 
 ## Training data
 
